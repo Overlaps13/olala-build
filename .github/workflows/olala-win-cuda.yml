@@ -48,3 +48,5 @@ jobs:
         with:
           name: olala-llama-win-cuda
           path: olala-llama-win-cuda.zip
+
+# registered on default branch
