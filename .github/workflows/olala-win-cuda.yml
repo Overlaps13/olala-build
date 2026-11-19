@@ -1,0 +1,50 @@
+name: olala-win-cuda
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-2022
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup CUDA 12.4
+        uses: ./.github/actions/windows-setup-cuda
+        with:
+          cuda_version: '12.4'
+          cuda_arch: '86'
+
+      - name: MSVC dev environment
+        uses: ilammy/msvc-dev-cmd@v1
+
+      - name: Configure
+        shell: pwsh
+        run: >
+          cmake -B build -G Ninja
+          -DCMAKE_BUILD_TYPE=Release
+          -DGGML_CUDA=ON
+          -DCMAKE_CUDA_ARCHITECTURES=86
+          -DCMAKE_CUDA_FLAGS=--allow-unsupported-compiler
+          -DGGML_NATIVE=OFF
+          -DLLAMA_CURL=OFF
+
+      - name: Build
+        shell: pwsh
+        run: cmake --build build -j 4 --target llama-server llama-cli
+
+      - name: Package
+        shell: pwsh
+        run: |
+          mkdir dist
+          Copy-Item -Path build/bin/* -Destination dist/ -Recurse -Force
+          $cuda = "C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v12.4\bin"
+          Copy-Item "$cuda\cudart64_12.dll" dist/ -Force
+          Copy-Item "$cuda\cublas64_12.dll" dist/ -Force
+          Copy-Item "$cuda\cublasLt64_12.dll" dist/ -Force
+          Get-ChildItem dist | Select-Object Name, Length | Format-Table
+          Compress-Archive -Path dist/* -DestinationPath olala-llama-win-cuda.zip
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: olala-llama-win-cuda
+          path: olala-llama-win-cuda.zip
