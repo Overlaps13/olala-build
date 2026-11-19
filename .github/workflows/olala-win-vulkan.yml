@@ -9,8 +9,11 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Setup Vulkan SDK
-        uses: Microsoft/setup-vulkan@v2
-        id: vksdk
+        uses: humbletim/setup-vulkan-sdk@v1.2.1
+        with:
+          vulkan-query-version: latest
+          vulkan-components: Vulkan-Headers, Vulkan-Loader, SPIRV-Headers, SPIRV-Tools, Glslang
+          vulkan-use-cache: true
 
       - name: MSVC dev environment
         uses: ilammy/msvc-dev-cmd@v1
