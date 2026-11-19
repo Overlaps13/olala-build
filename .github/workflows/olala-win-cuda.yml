@@ -27,6 +27,7 @@ jobs:
           -DCMAKE_CUDA_FLAGS=--allow-unsupported-compiler
           -DGGML_NATIVE=OFF
           -DGGML_CPU_ALL_VARIANTS=ON
+          -DGGML_BACKEND_DL=ON
           -DBUILD_SHARED_LIBS=ON
           -DGGML_OPENMP=OFF
           -DLLAMA_CURL=OFF
