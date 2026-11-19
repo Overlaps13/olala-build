@@ -44,8 +44,10 @@ jobs:
           mkdir dist
           Copy-Item -Path build/bin/* -Destination dist/ -Recurse -Force
           $cuda = "C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v12.4\bin"
-          $vc = Get-ChildItem "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Redist\MSVC" -Directory | Sort-Object Name -Descending | Select-Object -First 1
-          Copy-Item "$($vc.FullName)\x64\Microsoft.VC*.CRT\*.dll" dist/ -Force
+          $sys = "$env:SystemRoot\System32"
+          foreach ($d in @("vcruntime140.dll","vcruntime140_1.dll","msvcp140.dll","vcomp140.dll")) {
+            if (Test-Path "$sys\$d") { Copy-Item "$sys\$d" dist/ -Force } else { Write-Warning "CRT $d absent du systeme" }
+          }
           Copy-Item "$cuda\cudart64_12.dll" dist/ -Force
           Copy-Item "$cuda\cublas64_12.dll" dist/ -Force
           Copy-Item "$cuda\cublasLt64_12.dll" dist/ -Force
