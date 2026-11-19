@@ -27,8 +27,8 @@ jobs:
           -DCMAKE_CUDA_FLAGS=--allow-unsupported-compiler
           -DGGML_NATIVE=OFF
           -DLLAMA_CURL=OFF
-          -DHF_ENABLED=OFF
-          -DBUILD_UI=OFF
+          -DLLAMA_USE_PREBUILT_UI=OFF
+          -DLLAMA_BUILD_UI=OFF
 
       - name: Build
         shell: pwsh
