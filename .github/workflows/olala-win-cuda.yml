@@ -26,7 +26,9 @@ jobs:
           -DCMAKE_CUDA_ARCHITECTURES=86
           -DCMAKE_CUDA_FLAGS=--allow-unsupported-compiler
           -DGGML_NATIVE=OFF
+          -DGGML_OPENMP=OFF
           -DLLAMA_CURL=OFF
+          -DLLAMA_OPENSSL=OFF
           -DLLAMA_USE_PREBUILT_UI=OFF
           -DLLAMA_BUILD_UI=OFF
 
@@ -40,6 +42,8 @@ jobs:
           mkdir dist
           Copy-Item -Path build/bin/* -Destination dist/ -Recurse -Force
           $cuda = "C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v12.4\bin"
+          $vc = Get-ChildItem "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Redist\MSVC" -Directory | Sort-Object Name -Descending | Select-Object -First 1
+          Copy-Item "$($vc.FullName)\x64\Microsoft.VC*.CRT\*.dll" dist/ -Force
           Copy-Item "$cuda\cudart64_12.dll" dist/ -Force
           Copy-Item "$cuda\cublas64_12.dll" dist/ -Force
           Copy-Item "$cuda\cublasLt64_12.dll" dist/ -Force
