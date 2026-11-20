@@ -1,0 +1,99 @@
+name: olala-win-hip
+on:
+  workflow_dispatch:
+    inputs:
+      rocm_tarball:
+        description: "nom exact du tarball TheRock windows (vide = dernier gfx110X-all nightly)"
+        required: false
+        default: ""
+jobs:
+  build:
+    runs-on: windows-2022
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: MSVC dev environment
+        uses: ilammy/msvc-dev-cmd@v1
+
+      - name: Resolve ROCm dist
+        shell: pwsh
+        run: |
+          $v = "${{ github.event.inputs.rocm_tarball }}"
+          if (-not $v) {
+            $html = (Invoke-WebRequest "https://nightly.repo.amd.com/rocm/core/tarball/" -UseBasicParsing).Content
+            $all = [regex]::Matches($html, 'therock-dist-windows-gfx110X-all-[0-9A-Za-z.]+\.tar\.gz') | ForEach-Object { $_.Value } | Sort-Object -Unique
+            $v = $all | Sort-Object { [regex]::Match($_, 'a(\d{8})').Groups[1].Value } | Select-Object -Last 1
+          }
+          if (-not $v) { throw "aucun tarball gfx110X-all trouve" }
+          "ROCM_TARBALL=$v" | Out-File -Append $env:GITHUB_ENV
+          Write-Host "Choisi: $v"
+
+      - name: Download and unpack ROCm
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force D:\r | Out-Null
+          Invoke-WebRequest "https://nightly.repo.amd.com/rocm/core/tarball/$env:ROCM_TARBALL" -OutFile D:\rocm.tar.gz
+          tar -xf D:\rocm.tar.gz -C D:\r
+          Write-Host "--- racine ---"; Get-ChildItem D:\r | Select-Object -ExpandProperty Name
+          if (-not (Test-Path D:\r\lib\llvm\bin\clang++.exe)) { Get-ChildItem D:\r\lib -Directory | Select-Object -ExpandProperty Name; throw "pas de llvm/bin/clang++" }
+          Write-Host "--- cmake dispo ---"; Get-ChildItem D:\r\lib\cmake -Directory -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Name
+          Write-Host "--- dll cles ---"; Get-ChildItem D:\r -Recurse -Include hipblas*.dll,rocblas*.dll,amdhip64*.dll -ErrorAction SilentlyContinue | Select-Object -First 12 -ExpandProperty FullName
+
+      - name: Configure
+        shell: pwsh
+        run: >
+          cmake -B build -G Ninja
+          -DCMAKE_BUILD_TYPE=Release
+          -DGGML_HIP=ON
+          -DGGML_NATIVE=OFF
+          -DGGML_OPENMP=OFF
+          -DBUILD_SHARED_LIBS=ON
+          -DAMDGPU_TARGETS=gfx1102
+          -DGPU_TARGETS=gfx1102
+          -DCMAKE_C_COMPILER="D:/r/lib/llvm/bin/clang.exe"
+          -DCMAKE_CXX_COMPILER="D:/r/lib/llvm/bin/clang++.exe"
+          -DCMAKE_HIP_COMPILER="D:/r/lib/llvm/bin/clang++.exe"
+          -DCMAKE_PREFIX_PATH="D:/r"
+          -DHIP_PATH="D:/r"
+          -DLLAMA_CURL=OFF
+          -DLLAMA_OPENSSL=OFF
+          -DLLAMA_USE_PREBUILT_UI=OFF
+          -DLLAMA_BUILD_UI=OFF
+        env:
+          PATH: "D:\\r\\bin;D:\\r\\lib\\llvm\\bin;${{ env.PATH }}"
+          HIP_DEVICE_LIB_PATH: "D:\\r\\lib\\llvm\\amdgcn\\bitcode"
+          ROCM_PATH: "D:\\r"
+
+      - name: Build
+        shell: pwsh
+        run: cmake --build build -j 4 --target llama-server llama-cli
+        env:
+          PATH: "D:\\r\\bin;D:\\r\\lib\\llvm\\bin;${{ env.PATH }}"
+          HIP_DEVICE_LIB_PATH: "D:\\r\\lib\\llvm\\amdgcn\\bitcode"
+          ROCM_PATH: "D:\\r"
+
+      - name: Package
+        shell: pwsh
+        run: |
+          mkdir dist | Out-Null
+          Copy-Item build/bin/* dist/ -Recurse -Force
+          $rx = '^(amdhip64|amd_comgr|hipblas|hipblaslt|rocblas|rocsolver|hiprtc|rocm_kpack|origami|hipfft|tensile)'
+          $n = 0
+          Get-ChildItem D:\r -Recurse -Filter *.dll -ErrorAction SilentlyContinue |
+            Where-Object { $_.Name -match $rx } |
+            ForEach-Object { Copy-Item $_.FullName dist/ -Force; $n++ }
+          Write-Host "DLL ROCm copiees: $n"
+          foreach ($d in @("vcruntime140.dll","vcruntime140_1.dll","msvcp140.dll")) {
+            $s = Join-Path $env:SystemRoot "System32\$d"
+            if (Test-Path $s) { Copy-Item $s dist/ -Force }
+          }
+          foreach ($k in @("rocblas\library","hipblaslt\library",".kpack")) {
+            if (Test-Path "D:\r\$k") { Copy-Item "D:\r\$k" "dist\$k" -Recurse -Force }
+          }
+          Get-ChildItem dist | Sort-Object Length -Descending | Select-Object -First 20 Name,@{n='Mo';e={[int]($_.Length/1MB)}} | Format-Table
+          Compress-Archive -Path dist/* -DestinationPath olala-llama-win-hip.zip -CompressionLevel Optimal
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: olala-llama-win-hip
+          path: olala-llama-win-hip.zip
