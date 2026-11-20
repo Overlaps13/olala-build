@@ -77,7 +77,7 @@ jobs:
         run: |
           mkdir dist | Out-Null
           Copy-Item build/bin/* dist/ -Recurse -Force
-          $rx = '^(amdhip64|amd_comgr|camd_comgr|hipblas|libhipblas|hipblaslt|rocblas|rocsolver|rocfft|rocrand|hiprtc|rocm_kpack|origami|hipfft|tensile|libhip|libroc)'
+          $rx = '^(amdhip64|amd_comgr|camd_comgr|hipblas|libhipblas|hipblaslt|rocblas|librocblas|rocsolver|rocfft|rocrand|hiprtc|rocm_kpack|origami|hipfft|hiprand|tensile|libtensile|libhip|libroc)'
           $n = 0
           Get-ChildItem D:\r -Recurse -Filter *.dll -ErrorAction SilentlyContinue |
             Where-Object { $_.Name -match $rx } |
