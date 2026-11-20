@@ -87,9 +87,10 @@ jobs:
             $s = Join-Path $env:SystemRoot "System32\$d"
             if (Test-Path $s) { Copy-Item $s dist/ -Force }
           }
-          foreach ($k in @("rocblas\library","hipblaslt\library",".kpack")) {
-            if (Test-Path "D:\r\$k") { Copy-Item "D:\r\$k" "dist\$k" -Recurse -Force }
+          foreach ($k in @("D:\r\bin\rocblas\library","D:\r\bin\hipblaslt\library")) {
+            if (Test-Path $k) { $n = Split-Path (Split-Path $k -Parent) -Leaf; New-Item -ItemType Directory -Force "dist\$n" | Out-Null; Copy-Item $k "dist\$n\library" -Recurse -Force; Write-Host "Tensile embarque: $k" } else { Write-Error "TENSILE ABSENT $k"; exit 1 }
           }
+          if (Test-Path "D:\r\.kpack") { Copy-Item "D:\r\.kpack" "dist\.kpack" -Recurse -Force }
           Get-ChildItem dist | Sort-Object Length -Descending | Select-Object -First 20 Name,@{n='Mo';e={[int]($_.Length/1MB)}} | Format-Table
           Compress-Archive -Path dist/* -DestinationPath olala-llama-win-hip.zip -CompressionLevel Optimal
 
